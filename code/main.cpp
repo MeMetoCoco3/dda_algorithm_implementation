@@ -23,6 +23,7 @@ static bool Running = true;
 constexpr auto MOUSE_COLOR = GREEN;
 constexpr auto KEYBOARD_COLOR = BLUE;
 constexpr auto MOUSE_RADIUS = 20;
+constexpr auto PLAYER_SPEED = 200.0f;
 static Vector2 MousePos = { 0, 0 };
 static Vector2 KeyboardPos = { 0, 0 };
 static double TimeElapsed = 0;
@@ -37,7 +38,7 @@ int main(void)
 	while(Running)
 	{
 		ProcessInput();
-		TimeElapsed = GetTime();
+		TimeElapsed = GetFrameTime();
 
 		Vector2 RayStart = KeyboardPos;
 		RayStart.x = RayStart.x / GRID_SIZE;
@@ -47,14 +48,17 @@ int main(void)
 		MouseUnitSpace.x = MouseUnitSpace.x / GRID_SIZE;
 		MouseUnitSpace.y = MouseUnitSpace.y / GRID_SIZE;
 
-		Vector2 RayDir = Vector2Normalize(Vector2Subtract(MouseUnitSpace, RayStart));
+		Vector2 RayDir = Vector2Normalize(MouseUnitSpace - RayStart);
 		
 		Vector2 RayUnitStepSize = {
 			sqrt(1 + (RayDir.y / RayDir.x) * (RayDir.y / RayDir.x)),
 			sqrt(1 + (RayDir.x / RayDir.y) * (RayDir.x / RayDir.y))
 		};
 
-		Vector2 MapCheck = RayStart;
+		Vector2 MapCheck = {
+			floorf(RayStart.x),
+			floorf(RayStart.y)
+		};
 
 		Vector2 RayLength1D;
 		Vector2 Step;
@@ -81,10 +85,10 @@ int main(void)
 			RayLength1D.y = (float(MapCheck.y + 1) - RayStart.y)* RayUnitStepSize.y;
 		}
 
-		bool TileFound = false;
+		int TileFound = -1;
 		float Distance = 0.0f;
-		float MaxDistance = 100.0f;
-		while (!TileFound && Distance < MaxDistance)
+		float MaxDistance = Vector2Length(MousePos - KeyboardPos) / GRID_SIZE;
+		while (TileFound == -1 && Distance < MaxDistance)
 		{
 			if (RayLength1D.x < RayLength1D.y)
 			{
@@ -103,15 +107,16 @@ int main(void)
 				MapCheck.y >= 0 && MapCheck.y < N_ROW)
 			{
 				int Index = MapCheck.y * N_COLUMNS + MapCheck.x;
+				//if (Index >= Grid.size()) Index = Grid.size() - 1;
 				
 				if (Grid[Index])
 				{
-					TileFound = true;
+					TileFound = Index;
 				}
 			}
 		}
 		Vector2 Intersection;
-		if (TileFound)
+		if (TileFound != -1)
 		{
 			Intersection = RayStart + RayDir * Distance;
 		}
@@ -120,8 +125,11 @@ int main(void)
 			ClearBackground(GRAY);
 			DrawGrid();
 			DrawCorners();
-			if (TileFound)
+			if (TileFound != -1)
 			{
+				int Row = TileFound / N_COLUMNS;
+				int Column = TileFound % N_COLUMNS;
+				DrawRectangle(Column * GRID_SIZE, Row * GRID_SIZE, GRID_SIZE, GRID_SIZE, ORANGE);
 				DrawCircle(Intersection.x * GRID_SIZE, 
 					Intersection.y * GRID_SIZE,
 					MOUSE_RADIUS / 2.0f, YELLOW);
@@ -147,7 +155,7 @@ void DrawGrid()
 		if (Grid[i])
 		{
 			int Row = i / N_COLUMNS;
-			int Column = i % N_ROW;
+			int Column = i % N_COLUMNS;
 			DrawRectangle(Column * GRID_SIZE, Row * GRID_SIZE, GRID_SIZE, GRID_SIZE, RECT_COLOR);
 		}
 
@@ -169,15 +177,15 @@ void ProcessInput()
 	if (IsKeyReleased(KEY_ESCAPE) || WindowShouldClose()) Running = false;
 	
 	if (IsKeyDown(KEY_W)) {
-		KeyboardPos.y -= 0.1;
+		KeyboardPos.y -= PLAYER_SPEED * TimeElapsed;
 	} else if (IsKeyDown(KEY_S)) {
-		KeyboardPos.y += 0.1;
+		KeyboardPos.y += PLAYER_SPEED * TimeElapsed;
 	}
 
 	if (IsKeyDown(KEY_A)) {
-		KeyboardPos.x -= 0.1;
+		KeyboardPos.x -= PLAYER_SPEED * TimeElapsed;
 	} else if (IsKeyDown(KEY_D)) {
-		KeyboardPos.x += 0.1;
+		KeyboardPos.x += PLAYER_SPEED * TimeElapsed;
 	}
 	
 	KeyboardPos.x = Clampf32(KeyboardPos.x, 0, SCR_WIDTH);
